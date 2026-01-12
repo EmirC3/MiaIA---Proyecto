@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http; // <--- Importante para conectar
+import 'dart:convert'; // <--- Importante para entender el JSON
 
-// Cambiamos a StatefulWidget para poder actualizar el estado (enviar mensajes)
 class MainChatScreen extends StatefulWidget {
   const MainChatScreen({super.key});
 
@@ -9,47 +10,84 @@ class MainChatScreen extends StatefulWidget {
 }
 
 class _MainChatScreenState extends State<MainChatScreen> {
-  // Colores (Los defino aquí para usarlos en toda la clase)
+  // Colores
   final Color mainBlue = const Color(0xFF5B9EE1);
   final Color bgBlue = const Color(0xFFEBF5FF);
   final Color textGray = const Color(0xFF4A4A4A);
 
-  // Controlador para el campo de texto
+  // Controlador
   final TextEditingController _textController = TextEditingController();
 
-  // Lista inicial de mensajes
-  // 'isUser': true significa que lo escribió el usuario (irá a la derecha)
-  // 'isUser': false significa que es la IA (irá a la izquierda)
+  // Lista de mensajes
   List<Map<String, dynamic>> messages = [
-    {"isUser": true, "text": "¿Qué tal el ojo?"},
-    {"isUser": false, "text": "¡Muy bien, gracias por preguntar!"},
-    {"isUser": true, "text": "¿Qué tal el día de hoy?"},
-    {"isUser": false, "text": "¡Muy bien! ¿En qué puedo ayudarte hoy?"},
+    //{"isUser": true, "text": "¿Qué tal el ojo?"},
+    {"isUser": false, "text": "¡Holiii, Como te sientes Hoy?!"},
+    //{"isUser": true, "text": "¿Qué tal el día de hoy?"},
+    //{"isUser": false, "text": "¡Muy bien! ¿En qué puedo ayudarte hoy?"},
   ];
 
-  // Función para enviar mensaje
-  void _sendMessage() {
+  // --- FUNCIÓN CONECTADA A N8N ---
+  Future<void> _sendMessage() async {
     if (_textController.text.isNotEmpty) {
-      setState(() {
-        // Agregamos el mensaje del usuario a la lista
-        messages.add({"isUser": true, "text": _textController.text});
+      String userMessage = _textController.text;
 
-        // Simulación: La IA responde algo automáticamente después de 1 segundo (Opcional)
-        // Si no quieres esto, borra el Future.delayed
-        Future.delayed(const Duration(seconds: 1), () {
+      setState(() {
+        // 1. Mostrar mensaje del usuario inmediatamente
+        messages.add({"isUser": true, "text": userMessage});
+        _textController.clear();
+      });
+
+      try {
+        // 2. URL Especial para Emulador Android (apunta a tu PC localhost)
+        // Asegúrate de que n8n esté mostrando "Waiting for Webhook call..."
+        final url = Uri.parse('http://10.0.2.2:5678/webhook/chat');
+
+        // 3. Enviar a n8n
+        final response = await http.post(
+          url,
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({
+            "message": userMessage, // La llave que lee tu n8n
+          }),
+        );
+
+        // 4. Procesar respuesta
+        if (response.statusCode == 200) {
+          // Intentamos decodificar. Si n8n devuelve texto plano o JSON.
+          String aiReply = "";
+          try {
+            final data = jsonDecode(response.body);
+            // Si tu n8n devuelve { "text": "..." } usa data['text']
+            // Si devuelve solo el texto limpio en el body, usa data.toString()
+            aiReply = data.toString(); 
+            // TIP: Si en n8n ves que llega como JSON complejo, ajusta aquí.
+          } catch (e) {
+            // Si no es JSON, tomamos el texto tal cual
+            aiReply = response.body;
+          }
+
           if (mounted) {
             setState(() {
               messages.add({
                 "isUser": false,
-                "text": "Entendido, cuéntame más sobre eso.",
+                "text": aiReply,
               });
             });
           }
-        });
-
-        // Limpiamos el campo de texto
-        _textController.clear();
-      });
+        } else {
+          print("Error del servidor: ${response.statusCode}");
+        }
+      } catch (e) {
+        print("Error de conexión: $e");
+        if (mounted) {
+          setState(() {
+            messages.add({
+              "isUser": false,
+              "text": "MIA no está disponible en este momento (Revisa n8n).",
+            });
+          });
+        }
+      }
     }
   }
 
@@ -63,10 +101,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
           children: [
             // --- CABECERA ---
             Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20.0,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -89,9 +124,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
                       const CircleAvatar(
                         radius: 14,
                         backgroundColor: Colors.white,
-                        backgroundImage: NetworkImage(
-                          'https://i.pravatar.cc/150?img=5',
-                        ),
+                        backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=5'),
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -104,8 +137,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
               ),
             ),
 
-            // --- ILUSTRACIÓN CENTRAL (Reducida) ---
-            // Reduje la altura de 180 a 120 para que el chat suba más
+            // --- ILUSTRACIÓN CENTRAL ---
             SizedBox(
               height: 120,
               child: Stack(
@@ -126,7 +158,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.all(15), // Padding reducido
+                    padding: const EdgeInsets.all(15),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: mainBlue.withOpacity(0.2),
@@ -135,7 +167,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
                       Icons.support_agent,
                       size: 60,
                       color: mainBlue,
-                    ), // Icono más pequeño
+                    ),
                   ),
                 ],
               ),
@@ -160,7 +192,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
                 ),
                 child: Column(
                   children: [
-                    // LISTA DE MENSAJES DINÁMICA
+                    // LISTA DE MENSAJES
                     Expanded(
                       child: ListView.builder(
                         padding: const EdgeInsets.all(20),
@@ -178,25 +210,19 @@ class _MainChatScreenState extends State<MainChatScreen> {
 
                     // INPUT DE TEXTO
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                       child: Row(
                         children: [
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 15,
-                              ),
+                              padding: const EdgeInsets.symmetric(horizontal: 15),
                               height: 50,
                               decoration: BoxDecoration(
                                 color: Colors.grey[100],
                                 borderRadius: BorderRadius.circular(25),
                               ),
                               child: TextField(
-                                controller:
-                                    _textController, // Conectamos el controlador
+                                controller: _textController,
                                 decoration: const InputDecoration(
                                   hintText: "Escribe tu mensaje...",
                                   border: InputBorder.none,
@@ -206,9 +232,8 @@ class _MainChatScreenState extends State<MainChatScreen> {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          // BOTÓN ENVIAR
                           GestureDetector(
-                            onTap: _sendMessage, // Llamamos a la función enviar
+                            onTap: _sendMessage,
                             child: Container(
                               height: 50,
                               width: 50,
@@ -238,24 +263,9 @@ class _MainChatScreenState extends State<MainChatScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildNavItem(
-                            Icons.person_outline,
-                            "Chat",
-                            true,
-                            mainBlue,
-                          ),
-                          _buildNavItem(
-                            Icons.access_time,
-                            "Actividad",
-                            false,
-                            Colors.grey,
-                          ),
-                          _buildNavItem(
-                            Icons.list,
-                            "Configuración",
-                            false,
-                            Colors.grey,
-                          ),
+                          _buildNavItem(Icons.person_outline, "Chat", true, mainBlue),
+                          _buildNavItem(Icons.access_time, "Actividad", false, Colors.grey),
+                          _buildNavItem(Icons.list, "Configuración", false, Colors.grey),
                         ],
                       ),
                     ),
@@ -269,18 +279,14 @@ class _MainChatScreenState extends State<MainChatScreen> {
     );
   }
 
-  // USUARIO: Lado DERECHO (Gris)
+  // WIDGETS AUXILIARES (Sin cambios, solo copiados para completar el archivo)
   Widget _buildUserMessage(String text) {
     return Padding(
-      padding: const EdgeInsets.only(
-        bottom: 15.0,
-        left: 50.0,
-      ), // Margen izquierdo para que no ocupe toda la pantalla
+      padding: const EdgeInsets.only(bottom: 15.0, left: 50.0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.end, // Alinea todo a la derecha
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
           Flexible(
-            // <--- CAMBIO CLAVE: Usamos Flexible en lugar de Expanded
             child: Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
@@ -293,22 +299,11 @@ class _MainChatScreenState extends State<MainChatScreen> {
                 ),
               ),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment
-                    .end, // Alinea el texto a la derecha dentro de la burbuja
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text(
-                    "Tú",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: Colors.black54,
-                    ),
-                  ),
+                  const Text("Tú", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black54)),
                   const SizedBox(height: 5),
-                  Text(
-                    text,
-                    style: const TextStyle(fontSize: 14, color: Colors.black87),
-                  ),
+                  Text(text, style: const TextStyle(fontSize: 14, color: Colors.black87)),
                 ],
               ),
             ),
@@ -318,17 +313,12 @@ class _MainChatScreenState extends State<MainChatScreen> {
     );
   }
 
-  // IA: Lado IZQUIERDO (Azul)
   Widget _buildBotMessage(String text, Color color) {
     return Padding(
-      padding: const EdgeInsets.only(
-        bottom: 15.0,
-        right: 50.0,
-      ), // Margen derecho para que no llegue al borde
+      padding: const EdgeInsets.only(bottom: 15.0, right: 50.0),
       child: Row(
-        mainAxisAlignment:
-            MainAxisAlignment.start, // Alinea todo a la izquierda
-        crossAxisAlignment: CrossAxisAlignment.end, // Alinea el avatar abajo
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           CircleAvatar(
             radius: 16,
@@ -337,7 +327,6 @@ class _MainChatScreenState extends State<MainChatScreen> {
           ),
           const SizedBox(width: 8),
           Flexible(
-            // <--- CAMBIO CLAVE: Flexible permite que la burbuja se encoja
             child: Container(
               padding: const EdgeInsets.all(15),
               decoration: BoxDecoration(
@@ -352,19 +341,9 @@ class _MainChatScreenState extends State<MainChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "MIA AI:",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: Colors.white70,
-                    ),
-                  ),
+                  const Text("MIA AI:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white70)),
                   const SizedBox(height: 5),
-                  Text(
-                    text,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                  ),
+                  Text(text, style: const TextStyle(color: Colors.white, fontSize: 14)),
                 ],
               ),
             ),
@@ -374,12 +353,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
     );
   }
 
-  Widget _buildNavItem(
-    IconData icon,
-    String label,
-    bool isActive,
-    Color color,
-  ) {
+  Widget _buildNavItem(IconData icon, String label, bool isActive, Color color) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
