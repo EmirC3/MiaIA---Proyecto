@@ -59,7 +59,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
             final data = jsonDecode(response.body);
             // Si tu n8n devuelve { "text": "..." } usa data['text']
             // Si devuelve solo el texto limpio en el body, usa data.toString()
-            aiReply = data.toString(); 
+            aiReply = data.toString();
             // TIP: Si en n8n ves que llega como JSON complejo, ajusta aquí.
           } catch (e) {
             // Si no es JSON, tomamos el texto tal cual
@@ -68,10 +68,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
 
           if (mounted) {
             setState(() {
-              messages.add({
-                "isUser": false,
-                "text": aiReply,
-              });
+              messages.add({"isUser": false, "text": aiReply});
             });
           }
         } else {
@@ -101,7 +98,10 @@ class _MainChatScreenState extends State<MainChatScreen> {
           children: [
             // --- CABECERA ---
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 20.0,
+                vertical: 10,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -124,7 +124,9 @@ class _MainChatScreenState extends State<MainChatScreen> {
                       const CircleAvatar(
                         radius: 14,
                         backgroundColor: Colors.white,
-                        backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=5'),
+                        backgroundImage: NetworkImage(
+                          'https://i.pravatar.cc/150?img=5',
+                        ),
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -143,11 +145,13 @@ class _MainChatScreenState extends State<MainChatScreen> {
               child: Stack(
                 alignment: Alignment.center,
                 children: [
+                  // Nube decorativa (sin cambios)
                   Positioned(
                     left: 40,
                     top: 10,
                     child: Icon(Icons.cloud, color: Colors.white, size: 35),
                   ),
+                  // Burbuja de chat decorativa (sin cambios)
                   Positioned(
                     right: 50,
                     bottom: 20,
@@ -157,16 +161,20 @@ class _MainChatScreenState extends State<MainChatScreen> {
                       size: 25,
                     ),
                   ),
+                  // --- TU IMAGEN CENTRAL ---
                   Container(
-                    padding: const EdgeInsets.all(15),
+                    // Reduje un poco el padding para que la imagen se vea más grande
+                    padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
+                      // Mantenemos el fondo azul suave
                       color: mainBlue.withOpacity(0.2),
                     ),
-                    child: Icon(
-                      Icons.support_agent,
-                      size: 60,
-                      color: mainBlue,
+                    child: Image.asset(
+                      'assets/agent.png', // Asegúrate de que el nombre coincida
+                      height: 70, // Ajusta este tamaño según lo necesites
+                      width: 70,
+                      fit: BoxFit.contain,
                     ),
                   ),
                 ],
@@ -210,12 +218,17 @@ class _MainChatScreenState extends State<MainChatScreen> {
 
                     // INPUT DE TEXTO
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 10,
+                      ),
                       child: Row(
                         children: [
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 15),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 15,
+                              ),
                               height: 50,
                               decoration: BoxDecoration(
                                 color: Colors.grey[100],
@@ -263,9 +276,24 @@ class _MainChatScreenState extends State<MainChatScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
-                          _buildNavItem(Icons.person_outline, "Chat", true, mainBlue),
-                          _buildNavItem(Icons.access_time, "Actividad", false, Colors.grey),
-                          _buildNavItem(Icons.list, "Configuración", false, Colors.grey),
+                          _buildNavItem(
+                            Icons.person_outline,
+                            "Chat",
+                            true,
+                            mainBlue,
+                          ),
+                          _buildNavItem(
+                            Icons.access_time,
+                            "Actividad",
+                            false,
+                            Colors.grey,
+                          ),
+                          _buildNavItem(
+                            Icons.list,
+                            "Configuración",
+                            false,
+                            Colors.grey,
+                          ),
                         ],
                       ),
                     ),
@@ -301,9 +329,19 @@ class _MainChatScreenState extends State<MainChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text("Tú", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black54)),
+                  const Text(
+                    "Tú",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.black54,
+                    ),
+                  ),
                   const SizedBox(height: 5),
-                  Text(text, style: const TextStyle(fontSize: 14, color: Colors.black87)),
+                  Text(
+                    text,
+                    style: const TextStyle(fontSize: 14, color: Colors.black87),
+                  ),
                 ],
               ),
             ),
@@ -341,9 +379,19 @@ class _MainChatScreenState extends State<MainChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("MIA AI:", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.white70)),
+                  const Text(
+                    "MIA AI:",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.white70,
+                    ),
+                  ),
                   const SizedBox(height: 5),
-                  Text(text, style: const TextStyle(color: Colors.white, fontSize: 14)),
+                  Text(
+                    text,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                  ),
                 ],
               ),
             ),
@@ -353,7 +401,12 @@ class _MainChatScreenState extends State<MainChatScreen> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, bool isActive, Color color) {
+  Widget _buildNavItem(
+    IconData icon,
+    String label,
+    bool isActive,
+    Color color,
+  ) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
