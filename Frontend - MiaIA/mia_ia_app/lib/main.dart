@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 // Asegúrate de importar tu archivo main_chat.dart
 // Si el nombre de tu proyecto es "mi_app", sería: import 'package:mi_app/screens/main_chat.dart';
+import 'screens/home_bienvenida.dart';
 import 'screens/main_chat.dart';
 
 void main() {
@@ -20,7 +21,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5B9EE1)),
         useMaterial3: true,
       ),
-      home: const MainChatScreen(), // Aquí llamamos a tu pantalla
+      home: const HomeBienvenida(), // Aquí llamamos a tu pantalla
     );
   }
 }
