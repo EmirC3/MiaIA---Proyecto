@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'main_chat.dart'; // Para navegar al chat si el registro es exitoso
 import 'login_screen.dart'; // Para volver al login
+import 'package:mia_ia_app/services/auth_service.dart'; // <--- IMPORTANTE: Importa tu servicio aquí
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -10,30 +11,28 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  // 1. Controladores para todos los campos de texto
+  // 1. Controladores
   final TextEditingController nombreController = TextEditingController();
   final TextEditingController apellidoController = TextEditingController();
   final TextEditingController usuarioController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
-  // 2. Variables de Estado para Género y Términos
-  String? _selectedGender; // Puede ser nulo al principio
+  // 2. Variables de Estado
+  String? _selectedGender;
   bool _isTermsAccepted = false;
+  bool _isLoading = false; // <--- NUEVO: Para controlar la carga
 
   // Lista de opciones para el género
   final List<String> _genderOptions = ['Masculino', 'Femenino'];
 
-  // Paleta de colores consistentes
+  // Paleta de colores
   final Color backgroundColor = const Color(0xFFEBF5FF);
   final Color primaryBlue = const Color(0xFF5B9EE1);
   final Color darkText = const Color(0xFF1E4E8C);
-  final Color inputBorderColor = const Color(
-    0xFF5B9EE1,
-  ); // Color del borde de los inputs
+  final Color inputBorderColor = const Color(0xFF5B9EE1);
 
   @override
   void dispose() {
-    // Limpiamos los controladores cuando se cierra la pantalla
     nombreController.dispose();
     apellidoController.dispose();
     usuarioController.dispose();
@@ -41,11 +40,75 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  // --- LÓGICA DE REGISTRO ---
+  Future<void> _handleRegister() async {
+    // 1. Validaciones básicas
+    if (!_isTermsAccepted) {
+      _showSnackBar(
+        'Debes aceptar los términos para continuar.',
+        isError: true,
+      );
+      return;
+    }
+    if (_selectedGender == null) {
+      _showSnackBar('Por favor selecciona tu género.', isError: true);
+      return;
+    }
+    if (nombreController.text.isEmpty ||
+        apellidoController.text.isEmpty ||
+        usuarioController.text.isEmpty ||
+        passwordController.text.isEmpty) {
+      _showSnackBar('Todos los campos son obligatorios.', isError: true);
+      return;
+    }
+
+    // 2. Activar estado de carga
+    setState(() {
+      _isLoading = true;
+    });
+
+    // 3. Llamada al AuthService
+    final result = await AuthService.registerClient(
+      nombreController.text.trim(),
+      apellidoController.text.trim(),
+      usuarioController.text.trim(),
+      _selectedGender!,
+      passwordController.text.trim(),
+    );
+
+    // 4. Desactivar carga (si el widget sigue montado)
+    if (!mounted) return;
+    setState(() {
+      _isLoading = false;
+    });
+
+    // 5. Procesar respuesta
+    if (result['success']) {
+      // Éxito: Navegar al Chat
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const MainChatScreen()),
+      );
+    } else {
+      // Error: Mostrar mensaje del backend
+      _showSnackBar(result['message'] ?? 'Error al registrarse', isError: true);
+    }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.redAccent : primaryBlue,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      // AppBar simple para la flecha de retroceso
+      // AppBar simple
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -75,7 +138,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Ícono de avatar (Usamos uno nativo similar al de la imagen)
               Icon(
                 Icons.account_circle_rounded,
                 size: 80,
@@ -94,32 +156,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               const SizedBox(height: 25),
 
-              // --- CAMPOS DE TEXTO (Según tu imagen) ---
-
-              // 1. Nombre
+              // --- CAMPOS DE TEXTO ---
               _buildTextField(controller: nombreController, hintText: 'Nombre'),
               const SizedBox(height: 15),
-
-              // 2. Apellido
               _buildTextField(
                 controller: apellidoController,
                 hintText: 'Apellido',
               ),
               const SizedBox(height: 15),
-
-              // 3. Nombre de usuario
               _buildTextField(
                 controller: usuarioController,
                 hintText: 'Nombre de usuario',
               ),
               const SizedBox(height: 15),
 
-              // --- CAMPO ESPECIAL: SELECTOR DE GÉNERO ---
+              // --- SELECTOR DE GÉNERO ---
               _buildGenderDropdown(),
 
               const SizedBox(height: 15),
-
-              // 5. Contraseña
               _buildTextField(
                 controller: passwordController,
                 hintText: 'Crear contraseña',
@@ -128,7 +182,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               const SizedBox(height: 20),
 
-              // --- CHECKBOX DE TÉRMINOS ---
+              // --- CHECKBOX TÉRMINOS ---
               Row(
                 children: [
                   Checkbox(
@@ -166,55 +220,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 width: double.infinity,
                 height: 55,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // Validación simple
-                    if (!_isTermsAccepted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Debes aceptar los términos para continuar.',
-                          ),
-                        ),
-                      );
-                      return;
-                    }
-                    if (_selectedGender == null) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Por favor selecciona tu género.'),
-                        ),
-                      );
-                      return;
-                    }
-
-                    // TODO: Aquí iría la llamada a tu Backend para registrar
-                    print(
-                      "Registrando: ${usuarioController.text}, Género: $_selectedGender",
-                    );
-
-                    // Simulación de éxito: ir al chat
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const MainChatScreen(),
-                      ),
-                    );
-                  },
+                  onPressed: _isLoading ? null : _handleRegister,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: primaryBlue,
+                    disabledBackgroundColor: primaryBlue.withOpacity(0.6),
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  child: const Text(
-                    'CREAR CUENTA',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          'CREAR CUENTA',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
 
@@ -260,7 +291,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 40), // Espacio extra al final
+              const SizedBox(height: 40),
             ],
           ),
         ),
@@ -269,10 +300,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   // ==========================================
-  // WIDGETS AUXILIARES PARA EL DISEÑO
+  // WIDGETS AUXILIARES
   // ==========================================
 
-  // 1. Constructor para los campos de texto normales (Estilo de tu imagen)
   Widget _buildTextField({
     required TextEditingController controller,
     required String hintText,
@@ -282,10 +312,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: inputBorderColor,
-          width: 1.5,
-        ), // Borde azul visible siempre
+        border: Border.all(color: inputBorderColor, width: 1.5),
       ),
       child: TextFormField(
         controller: controller,
@@ -298,39 +325,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
             horizontal: 25,
             vertical: 18,
           ),
-          border: InputBorder.none, // Quitamos el borde default del input
-          focusedBorder: InputBorder.none,
-          enabledBorder: InputBorder.none,
+          border: InputBorder.none,
         ),
       ),
     );
   }
 
-  // 2. Constructor ESPECIAL para el Dropdown de Género
   Widget _buildGenderDropdown() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 25),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(30),
-        border: Border.all(
-          color: inputBorderColor,
-          width: 1.5,
-        ), // Mismo borde azul
+        border: Border.all(color: inputBorderColor, width: 1.5),
       ),
-      // DropdownButtonHideUnderline oculta la línea fea que trae el dropdown por defecto
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedGender,
           hint: Text("Genero", style: TextStyle(color: Colors.grey[400])),
-          icon: Icon(
-            Icons.arrow_drop_down,
-            color: primaryBlue,
-          ), // Ícono de flechita azul
-          isExpanded: true, // Para que ocupe todo el ancho
-          borderRadius: BorderRadius.circular(
-            20,
-          ), // Bordes redondeados al abrir el menú
+          icon: Icon(Icons.arrow_drop_down, color: primaryBlue),
+          isExpanded: true,
+          borderRadius: BorderRadius.circular(20),
           items: _genderOptions.map((String value) {
             return DropdownMenuItem<String>(
               value: value,
