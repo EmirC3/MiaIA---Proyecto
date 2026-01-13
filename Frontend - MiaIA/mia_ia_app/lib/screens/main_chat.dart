@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http; // <--- Importante para conectar
-import 'dart:convert'; // <--- Importante para entender el JSON
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:async';
 
 class MainChatScreen extends StatefulWidget {
   const MainChatScreen({super.key});
@@ -10,295 +11,426 @@ class MainChatScreen extends StatefulWidget {
 }
 
 class _MainChatScreenState extends State<MainChatScreen> {
-  // Colores
-  final Color mainBlue = const Color(0xFF5B9EE1);
-  final Color bgBlue = const Color(0xFFEBF5FF);
-  final Color textGray = const Color(0xFF4A4A4A);
+  // --- COLORES (ACTUALIZADOS A LA PALETA) ---
+  final Color accentBlue = const Color(0xFF6BAED6); // Azul suave
+  final Color bgLightBlue = const Color(0xFFE8F2FA); // Azul claro
+  final Color textWarmGray = const Color(0xFF6B7280); // Gris cálido
+  final Color textBlack = const Color(
+    0xFF1D1D1D,
+  ); // Mantenemos para contraste fuerte
 
-  // Controlador
   final TextEditingController _textController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
-  // Lista de mensajes
-  List<Map<String, dynamic>> messages = [
-    //{"isUser": true, "text": "¿Qué tal el ojo?"},
-    {"isUser": false, "text": "¡Holiii, Como te sientes Hoy?!"},
-    //{"isUser": true, "text": "¿Qué tal el día de hoy?"},
-    //{"isUser": false, "text": "¡Muy bien! ¿En qué puedo ayudarte hoy?"},
-  ];
+  // NECESARIO PARA ABRIR EL MENU LATERAL
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  // --- FUNCIÓN CONECTADA A N8N ---
+  // --- Iniciamos con la lista VACÍA ---
+  List<Map<String, dynamic>> messages = [];
+
+  bool _isTyping = false;
+
+  // --- LOGICA ---
   Future<void> _sendMessage() async {
     if (_textController.text.isNotEmpty) {
       String userMessage = _textController.text;
 
       setState(() {
-        // 1. Mostrar mensaje del usuario inmediatamente
         messages.add({"isUser": true, "text": userMessage});
+        _isTyping = true;
         _textController.clear();
       });
 
-      try {
-        // 2. URL Especial para Emulador Android (apunta a tu PC localhost)
-        // Asegúrate de que n8n esté mostrando "Waiting for Webhook call..."
-        final url = Uri.parse('https://plastometric-pourable-gloria.ngrok-free.dev/webhook/chat');
+      _scrollToBottom();
 
-        // 3. Enviar a n8n
+      try {
+        // Tiempo de espera simulado (3 segundos)
+        await Future.delayed(const Duration(seconds: 3));
+
+        final url = Uri.parse(
+          'https://plastometric-pourable-gloria.ngrok-free.dev/webhook/chat',
+        );
+
         final response = await http.post(
           url,
           headers: {"Content-Type": "application/json"},
-          body: jsonEncode({
-            "message": userMessage, // La llave que lee tu n8n
-          }),
+          body: jsonEncode({"message": userMessage}),
         );
 
-        // 4. Procesar respuesta
         if (response.statusCode == 200) {
-          // Intentamos decodificar. Si n8n devuelve texto plano o JSON.
           String aiReply = "";
           try {
             final data = jsonDecode(response.body);
-            // Si tu n8n devuelve { "text": "..." } usa data['text']
-            // Si devuelve solo el texto limpio en el body, usa data.toString()
             aiReply = data.toString();
-            // TIP: Si en n8n ves que llega como JSON complejo, ajusta aquí.
           } catch (e) {
-            // Si no es JSON, tomamos el texto tal cual
             aiReply = response.body;
           }
 
           if (mounted) {
             setState(() {
+              _isTyping = false;
               messages.add({"isUser": false, "text": aiReply});
             });
+            _scrollToBottom();
           }
         } else {
-          print("Error del servidor: ${response.statusCode}");
+          _handleError();
         }
       } catch (e) {
-        print("Error de conexión: $e");
-        if (mounted) {
-          setState(() {
-            messages.add({
-              "isUser": false,
-              "text": "MIA no está disponible en este momento (Revisa n8n).",
-            });
-          });
-        }
+        _handleError();
       }
     }
+  }
+
+  void _handleError() {
+    if (mounted) {
+      setState(() {
+        _isTyping = false;
+        messages.add({
+          "isUser": false,
+          "text": "MIA no está disponible en este momento.",
+        });
+      });
+      _scrollToBottom();
+    }
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: bgBlue,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // --- CABECERA ---
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20.0,
-                vertical: 10,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.favorite, color: mainBlue, size: 28),
-                      const SizedBox(width: 8),
-                      Text(
-                        'MIA AI',
-                        style: TextStyle(
-                          color: mainBlue,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const CircleAvatar(
-                        radius: 14,
-                        backgroundColor: Colors.white,
-                        backgroundImage: NetworkImage(
-                          'https://i.pravatar.cc/150?img=5',
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        '¡Hola, Usuario!',
-                        style: TextStyle(color: textGray, fontSize: 14),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
-            // --- ILUSTRACIÓN CENTRAL ---
-            SizedBox(
-              height: 120,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  // Nube decorativa (sin cambios)
-                  Positioned(
-                    left: 40,
-                    top: 10,
-                    child: Icon(Icons.cloud, color: Colors.white, size: 35),
-                  ),
-                  // Burbuja de chat decorativa (sin cambios)
-                  Positioned(
-                    right: 50,
-                    bottom: 20,
-                    child: Icon(
-                      Icons.chat_bubble,
-                      color: Colors.white,
-                      size: 25,
-                    ),
-                  ),
-                  // --- TU IMAGEN CENTRAL ---
-                  Container(
-                    // Reduje un poco el padding para que la imagen se vea más grande
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      // Mantenemos el fondo azul suave
-                      color: mainBlue.withOpacity(0.2),
-                    ),
-                    child: Image.asset(
-                      'assets/agent.png', // Asegúrate de que el nombre coincida
-                      height: 70, // Ajusta este tamaño según lo necesites
-                      width: 70,
-                      fit: BoxFit.contain,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // --- PANEL DE CHAT ---
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(30),
-                    topRight: Radius.circular(30),
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 10,
-                      offset: Offset(0, -5),
-                    ),
-                  ],
+      key: _scaffoldKey, // Asignamos la llave al Scaffold
+      drawer: _buildDrawer(), // Aquí cargamos el menú lateral
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            // Usamos la nueva paleta para el fondo
+            colors: [bgLightBlue, Colors.white],
+            stops: const [0.0, 0.4],
+          ),
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              // --- CABECERA ---
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 10,
                 ),
-                child: Column(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // LISTA DE MENSAJES
-                    Expanded(
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(20),
-                        itemCount: messages.length,
-                        itemBuilder: (context, index) {
-                          final msg = messages[index];
-                          if (msg['isUser']) {
-                            return _buildUserMessage(msg['text']);
-                          } else {
-                            return _buildBotMessage(msg['text'], mainBlue);
-                          }
-                        },
-                      ),
+                    // CAMBIO: Flecha cambiada por Menú (3 líneas)
+                    _buildCircleBtn(
+                      Icons.menu,
+                      () => _scaffoldKey.currentState?.openDrawer(),
                     ),
-
-                    // INPUT DE TEXTO
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 20,
                         vertical: 10,
                       ),
+                      decoration: BoxDecoration(
+                        color: bgLightBlue, // Usando paleta
+                        borderRadius: BorderRadius.circular(30),
+                      ),
                       child: Row(
                         children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 15,
-                              ),
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(25),
-                              ),
-                              child: TextField(
-                                controller: _textController,
-                                decoration: const InputDecoration(
-                                  hintText: "Escribe tu mensaje...",
-                                  border: InputBorder.none,
-                                  hintStyle: TextStyle(color: Colors.grey),
-                                ),
-                              ),
+                          Text(
+                            "Mia AI ",
+                            style: TextStyle(
+                              color: accentBlue,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
                             ),
                           ),
-                          const SizedBox(width: 10),
-                          GestureDetector(
-                            onTap: _sendMessage,
-                            child: Container(
-                              height: 50,
-                              width: 50,
-                              decoration: BoxDecoration(
-                                color: mainBlue,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.send,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                            ),
-                          ),
+                          Icon(Icons.auto_awesome, size: 16, color: accentBlue),
                         ],
                       ),
                     ),
+                    _buildCircleBtn(Icons.more_horiz, () {}),
+                  ],
+                ),
+              ),
 
-                    // BARRA DE NAVEGACIÓN
-                    Container(
-                      padding: const EdgeInsets.symmetric(vertical: 15),
-                      decoration: BoxDecoration(
-                        border: Border(
-                          top: BorderSide(color: Colors.grey[200]!),
+              // --- CONTENIDO CENTRAL ---
+              Expanded(
+                child: messages.isEmpty
+                    ? _buildWelcomeScreen()
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 20,
                         ),
+                        itemCount: messages.length + (_isTyping ? 1 : 0),
+                        itemBuilder: (context, index) {
+                          if (_isTyping && index == messages.length) {
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                margin: const EdgeInsets.only(
+                                  bottom: 16,
+                                  right: 50,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 20,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(4),
+                                    topRight: Radius.circular(24),
+                                    bottomLeft: Radius.circular(24),
+                                    bottomRight: Radius.circular(24),
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: const TypingIndicator(),
+                              ),
+                            );
+                          }
+                          final msg = messages[index];
+                          return msg['isUser']
+                              ? _buildUserMessage(msg['text'])
+                              : _buildBotMessage(msg['text']);
+                        },
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildNavItem(
-                            Icons.person_outline,
-                            "Chat",
-                            true,
-                            mainBlue,
-                          ),
-                          _buildNavItem(
-                            Icons.access_time,
-                            "Actividad",
-                            false,
-                            Colors.grey,
-                          ),
-                          _buildNavItem(
-                            Icons.list,
-                            "Configuración",
-                            false,
-                            Colors.grey,
+              ),
+
+              // --- INPUT ---
+              Padding(
+                padding: const EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  bottom: 20,
+                  top: 10,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      height: 50,
+                      width: 50,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
                           ),
                         ],
+                      ),
+                      child: Icon(Icons.add, color: textWarmGray),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        height: 55,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _textController,
+                                onSubmitted: (_) => _sendMessage(),
+                                decoration: InputDecoration(
+                                  hintText: "Escribe un mensaje...",
+                                  border: InputBorder.none,
+                                  hintStyle: TextStyle(
+                                    color: textWarmGray.withOpacity(0.5),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: _sendMessage,
+                              child: Icon(Icons.send, color: accentBlue),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- NUEVO: BARRA LATERAL (DRAWER) ---
+  Widget _buildDrawer() {
+    return Drawer(
+      backgroundColor: Colors.white,
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 20),
+            // Botón Nuevo Chat
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: bgLightBlue,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: ListTile(
+                  leading: Icon(Icons.add_comment_rounded, color: accentBlue),
+                  title: Text(
+                    "Nuevo Chat",
+                    style: TextStyle(
+                      color: accentBlue,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  onTap: () {
+                    // Lógica para limpiar chat
+                    setState(() {
+                      messages.clear();
+                    });
+                    Navigator.pop(context); // Cerrar drawer
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+
+            // Sección Chats Anteriores
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0),
+              child: Text(
+                "Chats anteriores",
+                style: TextStyle(
+                  color: textWarmGray,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Ejemplos visuales
+            ListTile(
+              leading: Icon(Icons.chat_bubble_outline, color: textWarmGray),
+              title: Text(
+                "Idea para regalo...",
+                style: TextStyle(color: textBlack),
+              ),
+              onTap: () {},
+            ),
+            ListTile(
+              leading: Icon(Icons.chat_bubble_outline, color: textWarmGray),
+              title: Text(
+                "Resumen de texto",
+                style: TextStyle(color: textBlack),
+              ),
+              onTap: () {},
+            ),
+
+            // Empujamos lo siguiente al fondo
+            const Spacer(),
+
+            Divider(color: bgLightBlue),
+            // Sección Comunidad
+            ListTile(
+              leading: Icon(Icons.groups_rounded, color: accentBlue),
+              title: Text(
+                "Comunidad",
+                style: TextStyle(
+                  color: accentBlue,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              onTap: () {},
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- WIDGET PANTALLA DE BIENVENIDA (ACTUALIZADO COLORES) ---
+  Widget _buildWelcomeScreen() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 30),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [accentBlue, const Color(0xFF90CAF9)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ).createShader(bounds),
+              child: const Icon(
+                Icons.auto_awesome,
+                size: 60,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [accentBlue, const Color(0xFF90CAF9)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ).createShader(bounds),
+              child: const Text(
+                "Hola, estoy aquí contigo",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "¿Qué te gustaría contarme hoy?",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 18,
+                color: textWarmGray, // Actualizado
+                fontWeight: FontWeight.w400,
               ),
             ),
           ],
@@ -307,113 +439,142 @@ class _MainChatScreenState extends State<MainChatScreen> {
     );
   }
 
-  // WIDGETS AUXILIARES (Sin cambios, solo copiados para completar el archivo)
+  // --- WIDGETS AUXILIARES ---
+  Widget _buildCircleBtn(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.6),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(icon, color: textWarmGray, size: 22),
+      ),
+    );
+  }
+
   Widget _buildUserMessage(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15.0, left: 50.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: Colors.grey[200],
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(0),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text(
-                    "Tú",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: Colors.black54,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    text,
-                    style: const TextStyle(fontSize: 14, color: Colors.black87),
-                  ),
-                ],
-              ),
-            ),
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16, left: 50),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        decoration: BoxDecoration(
+          color: accentBlue, // Usa el nuevo azul suave
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+            bottomLeft: Radius.circular(24),
+            bottomRight: Radius.circular(4),
           ),
-        ],
+          boxShadow: [
+            BoxShadow(
+              color: accentBlue.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
       ),
     );
   }
 
-  Widget _buildBotMessage(String text, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15.0, right: 50.0),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: Colors.blue[100],
-            child: Icon(Icons.support_agent, size: 20, color: color),
+  Widget _buildBotMessage(String text) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16, right: 50),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(4),
+            topRight: Radius.circular(24),
+            bottomLeft: Radius.circular(24),
+            bottomRight: Radius.circular(24),
           ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Container(
-              padding: const EdgeInsets.all(15),
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
-                  bottomLeft: Radius.circular(0),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "MIA AI:",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                      color: Colors.white70,
-                    ),
-                  ),
-                  const SizedBox(height: 5),
-                  Text(
-                    text,
-                    style: const TextStyle(color: Colors.white, fontSize: 14),
-                  ),
-                ],
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
             ),
-          ),
-        ],
+          ],
+        ),
+        child: Text(
+          text,
+          style: TextStyle(color: textBlack, fontSize: 16, height: 1.4),
+        ),
+      ),
+    );
+  }
+}
+
+// --- WIDGET DE PUNTITOS (ANIMACIÓN) ---
+class TypingIndicator extends StatefulWidget {
+  const TypingIndicator({super.key});
+
+  @override
+  State<TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<TypingIndicator>
+    with TickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 40,
+      height: 10,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [_buildDot(0), _buildDot(1), _buildDot(2)],
       ),
     );
   }
 
-  Widget _buildNavItem(
-    IconData icon,
-    String label,
-    bool isActive,
-    Color color,
-  ) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color),
-        const SizedBox(height: 4),
-        Text(label, style: TextStyle(color: color, fontSize: 12)),
-      ],
+  Widget _buildDot(int index) {
+    double delay = index * 0.2;
+    return FadeTransition(
+      opacity:
+          TweenSequence([
+            TweenSequenceItem(tween: Tween(begin: 0.4, end: 1.0), weight: 50),
+            TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.4), weight: 50),
+          ]).animate(
+            CurvedAnimation(
+              parent: _controller,
+              curve: Interval(delay, delay + 0.6, curve: Curves.easeInOut),
+            ),
+          ),
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: const BoxDecoration(
+          color: Color(0xFF6B7280), // Gris cálido
+          shape: BoxShape.circle,
+        ),
+      ),
     );
   }
 }
