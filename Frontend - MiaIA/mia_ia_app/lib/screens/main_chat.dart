@@ -40,7 +40,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
       try {
         // 2. URL Especial para Emulador Android (apunta a tu PC localhost)
         // Asegúrate de que n8n esté mostrando "Waiting for Webhook call..."
-        final url = Uri.parse('http://10.0.2.2:5678/webhook/chat');
+        final url = Uri.parse('https://plastometric-pourable-gloria.ngrok-free.dev/webhook/chat');
 
         // 3. Enviar a n8n
         final response = await http.post(
