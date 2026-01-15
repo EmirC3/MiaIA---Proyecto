@@ -126,7 +126,7 @@ class _LoginScreenState extends State<LoginScreen> {
               // 4. INPUT: CORREO
               _buildTextField(
                 controller: emailController,
-                hintText: 'Correo Electrónico',
+                hintText: 'Nombre de Usuario',
                 primaryColor: primaryBlue,
                 icon: Icons.email_outlined,
               ),
