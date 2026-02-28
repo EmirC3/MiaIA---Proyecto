@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
+import 'package:mia_ia_app/services/auth_service.dart';
 
 class MainChatScreen extends StatefulWidget {
   const MainChatScreen({super.key});
@@ -34,6 +35,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
   Future<void> _sendMessage() async {
     if (_textController.text.isNotEmpty) {
       String userMessage = _textController.text;
+      String userName = AuthService.nombreUsuarioLogueado ?? "Invitado";
 
       setState(() {
         messages.add({"isUser": true, "text": userMessage});
@@ -54,7 +56,8 @@ class _MainChatScreenState extends State<MainChatScreen> {
         final response = await http.post(
           url,
           headers: {"Content-Type": "application/json"},
-          body: jsonEncode({"message": userMessage}),
+          body: jsonEncode({"message": userMessage,
+                            "usuario": userName,}),
         );
 
         if (response.statusCode == 200) {

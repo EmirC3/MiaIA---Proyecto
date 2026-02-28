@@ -7,6 +7,7 @@ class AuthService {
   static const String baseUrl =
       'https://brittany-pasquilic-adria.ngrok-free.dev/api';
 
+  static String? nombreUsuarioLogueado;
   // ==========================================================
   //                      ZONA DE CLIENTES
   // ==========================================================
@@ -25,7 +26,15 @@ class AuthService {
         body: jsonEncode({'nombreuser': username, 'contraseña': password}),
       );
 
-      return _processResponse(response);
+      final resultado = _processResponse(response);
+
+      // Si el login fue exitoso, guardamos el nombre en la variable estática
+      if (resultado['success'] == true) {
+        nombreUsuarioLogueado = username;
+      }
+
+      return resultado;
+      
     } catch (e) {
       return {'success': false, 'message': 'Error de conexión: $e'};
     }
@@ -54,7 +63,13 @@ class AuthService {
         }),
       );
 
-      return _processResponse(response);
+      final resultado = _processResponse(response);
+
+      // También guardamos si se registra e inicia sesión automáticamente
+      if (resultado['success'] == true) {
+        nombreUsuarioLogueado = username;
+      }
+      return resultado;
     } catch (e) {
       return {'success': false, 'message': 'Error de conexión: $e'};
     }
