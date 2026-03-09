@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-// Asegúrate de importar tu archivo main_chat.dart
-// Si el nombre de tu proyecto es "mi_app", sería: import 'package:mi_app/screens/main_chat.dart';
-import 'screens/home_bienvenida.dart';
-import 'screens/main_chat.dart';
+// 1. Asegúrate de que la ruta apunte a tu archivo NavegationBar.dart
+// Si está en la carpeta screens sería: import 'package:mia_ia_app/screens/NavegationBar.dart';
+import 'screens/NavegationBar.dart'; 
 
 void main() {
   runApp(const MyApp());
@@ -17,11 +16,11 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'MIA AI Chat',
       theme: ThemeData(
-        // Usamos colores azules como base
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF5B9EE1)),
         useMaterial3: true,
       ),
-      home: const HomeBienvenida(), // Aquí llamamos a tu pantalla
+      // 2. Aquí llamamos a la clase que está dentro de NavegationBar.dart
+      home: const MainNavigation(), 
     );
   }
 }

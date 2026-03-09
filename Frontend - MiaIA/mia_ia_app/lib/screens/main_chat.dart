@@ -420,7 +420,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
                 "Hola, estoy aquí contigo",
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: 28,
+                  fontSize: 25,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
@@ -431,7 +431,7 @@ class _MainChatScreenState extends State<MainChatScreen> {
               "¿Qué te gustaría contarme hoy?",
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 14,
                 color: textWarmGray, // Actualizado
                 fontWeight: FontWeight.w400,
               ),
